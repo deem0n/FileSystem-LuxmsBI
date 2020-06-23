@@ -8,3 +8,8 @@ Class {
 	#superclass : #PackageManifest,
 	#category : #'FileSystem-LuxmsBI-Manifest'
 }
+
+{ #category : #'code-critics' }
+ManifestFileSystemLuxmsBI class >> ruleRBMethodSourceContainsLinefeedsRuleV1FalsePositive [
+	^ #(#(#(#RGMethodDefinition #(#LuxmsBIStore #initializeWithURL: #false)) #'2020-06-21T23:53:05.677032+03:00') )
+]
