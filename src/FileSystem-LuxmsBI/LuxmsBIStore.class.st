@@ -7,7 +7,7 @@ Class {
 		'username',
 		'password'
 	],
-	#category : #'FileSystem-LuxmsBI-Base'
+	#category : #'FileSystem-LuxmsBI-Store'
 }
 
 { #category : #'as yet unclassified' }
@@ -15,6 +15,15 @@ LuxmsBIStore class >> serverURL: anURL [
 	^ self basicNew
 		initializeWithURL: anURL
 		yourself
+]
+
+{ #category : #private }
+LuxmsBIStore >> basicEntry: directoryEntry path: aPath nodesDo: aBlock [
+	"directory entry might be LuxmsBIFileSystemdatasetEntry"
+	(directoryEntry isKindOf: LuxmsBIFileSystemDatasetEntry) ifTrue: [ 
+		directoryEntry shouldLoadEntries ifTrue: [ self loadDatasetResourcesFor: directoryEntry ]
+	].
+	directoryEntry fileEntriesDo: aBlock
 ]
 
 { #category : #initialization }
@@ -32,12 +41,23 @@ LuxmsBIStore >> fillRootDir [
 	datasets
 		do: [ :hash | 
 			self root
-				ensureCreateDirectory: (hash at: 'schema_name') ]
+				ensureCreateDatasetFromDict: hash ]
 ]
 
 { #category : #printing }
 LuxmsBIStore >> forReferencePrintOn: aStream [
 	aStream nextPutAll: self serverURL asString 
+]
+
+{ #category : #initialization }
+LuxmsBIStore >> initialize [
+	"comment stating purpose of instance-side message"
+	"scope: class-variables  &  instance-variables"	
+			
+	| |
+	super initialize.
+	"We should create specific entries as children of root"
+	root := LuxmsBIFileSystemRootEntry new.
 ]
 
 { #category : #initialization }
@@ -51,6 +71,25 @@ LuxmsBIStore >> initializeWithURL: anURL [
 	response := self login.
 	response statusLine code = 200 ifFalse: [ ^ self ].
 	self fillRootDir.
+]
+
+{ #category : #initialization }
+LuxmsBIStore >> loadDatasetResourcesFor: directoryEntry [ 
+	| response resources |
+	response := httpClient
+		url: serverURL;
+		timeout: 20;
+		addPath: '/api/db/', (directoryEntry basename), '.resources';
+		get;
+		response.
+	httpClient isSuccess
+		ifFalse: [ ^ self ].
+	resources := NeoJSONReader fromString: response entity string.
+	resources
+		do: [ :hash | 
+			directoryEntry
+				ensureCreateFile: (hash at: 'alt_id')].
+	directoryEntry shouldLoadEntries: false.
 ]
 
 { #category : #initialization }
