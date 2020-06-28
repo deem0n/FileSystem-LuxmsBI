@@ -1,3 +1,6 @@
+"
+I am specific store for the Luxms BI FileSystem
+"
 Class {
 	#name : #LuxmsBIStore,
 	#superclass : #MemoryStore,
@@ -20,10 +23,40 @@ LuxmsBIStore class >> serverURL: anURL [
 { #category : #private }
 LuxmsBIStore >> basicEntry: directoryEntry path: aPath nodesDo: aBlock [
 	"directory entry might be LuxmsBIFileSystemdatasetEntry"
-	(directoryEntry isKindOf: LuxmsBIFileSystemDatasetEntry) ifTrue: [ 
-		directoryEntry shouldLoadEntries ifTrue: [ self loadDatasetResourcesFor: directoryEntry ]
-	].
+
+	(directoryEntry
+		isKindOf:
+			(self class environment at: #LuxmsBIFileSystemDatasetEntry))
+		ifTrue: [ directoryEntry shouldLoadEntries
+				ifTrue: [ self loadDatasetResourcesFor: directoryEntry ] ].
 	directoryEntry fileEntriesDo: aBlock
+]
+
+{ #category : #private }
+LuxmsBIStore >> basicOpen: path writable: aBoolean [
+	^ self
+		nodeAt: path
+		ifPresent: [ :aMemoryFileSystemEntry | "LuxmsBIFile" 
+			self downloadContentFor: aMemoryFileSystemEntry withPath: path ]
+		ifAbsent: [ aBoolean
+				ifFalse: [ self signalFileDoesNotExist: path ]
+				ifTrue: [ self createFile: path ] ]
+]
+
+{ #category : #initialization }
+LuxmsBIStore >> downloadContentFor: aLuxmsBIFileSystemFile withPath: path [
+	| response |
+	aLuxmsBIFileSystemFile shouldLoadBytes ifFalse: [^ aLuxmsBIFileSystemFile basicOpen; yourself ].
+	
+	response := httpClient
+		url: serverURL;
+		timeout: 20;
+		addPath: '/srv/resources', (path pathString);
+		get;
+		response.
+	httpClient isSuccess
+		ifTrue: [	aLuxmsBIFileSystemFile shouldLoadBytes: false; updateContents: (response entity bytes)].
+	^ aLuxmsBIFileSystemFile.
 ]
 
 { #category : #initialization }
@@ -74,12 +107,12 @@ LuxmsBIStore >> initializeWithURL: anURL [
 ]
 
 { #category : #initialization }
-LuxmsBIStore >> loadDatasetResourcesFor: directoryEntry [ 
+LuxmsBIStore >> loadDatasetResourcesFor: datasetDirectoryEntry [ 
 	| response resources |
 	response := httpClient
 		url: serverURL;
 		timeout: 20;
-		addPath: '/api/db/', (directoryEntry basename), '.resources';
+		addPath: '/api/db/', (datasetDirectoryEntry basename), '.resources';
 		get;
 		response.
 	httpClient isSuccess
@@ -87,9 +120,9 @@ LuxmsBIStore >> loadDatasetResourcesFor: directoryEntry [
 	resources := NeoJSONReader fromString: response entity string.
 	resources
 		do: [ :hash | 
-			directoryEntry
-				ensureCreateFile: (hash at: 'alt_id')].
-	directoryEntry shouldLoadEntries: false.
+			datasetDirectoryEntry
+				ensureCreateFileFromDict: hash].
+	datasetDirectoryEntry shouldLoadEntries: false.
 ]
 
 { #category : #initialization }

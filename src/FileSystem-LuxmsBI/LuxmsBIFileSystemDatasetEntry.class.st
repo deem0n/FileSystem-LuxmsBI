@@ -30,11 +30,11 @@ LuxmsBIFileSystemDatasetEntry >> config: anObject [
 	config := anObject
 ]
 
-{ #category : #enumeration }
-LuxmsBIFileSystemDatasetEntry >> fileEntriesDo: aBlock [
-	"base class doesn't use self entries, so we have no chance to catch the behaviour"
-	self entries keys sort do: [ :fileName|
-		aBlock value: (entries at: fileName)].
+{ #category : #creation }
+LuxmsBIFileSystemDatasetEntry >> ensureCreateFileFromDict: aDict [
+	^ self 
+		fileEntryAt: (aDict at: 'alt_id') 
+		put: (LuxmsBIFileSystemFile withConfig: aDict)
 ]
 
 { #category : #accessing }
